@@ -38,6 +38,18 @@ public class Product {
                 price, category, true, now, now);
     }
 
+    public void updateDetails(String name, String description, BigDecimal price, String category) {
+        String validName = requireText(name, "name");
+        BigDecimal validPrice = requirePositive(price, "price");
+        String validCategory = requireText(category, "category");
+
+        this.name = validName;
+        this.description = description;
+        this.price = validPrice;
+        this.category = validCategory;
+        touch();
+    }
+
     public void changePrice(BigDecimal newPrice) {
         this.price = requirePositive(newPrice, "price");
         touch();
