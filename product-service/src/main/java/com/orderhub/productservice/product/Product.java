@@ -108,6 +108,23 @@ public class Product {
         this.updatedAt = Instant.now();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Product other)) return false;
+        return Objects.equals(sku, other.sku);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sku);
+    }
+
+    @Override
+    public String toString() {
+        return "Product[id=" + id + ", sku=" + sku + ", name=" + name + "]";
+    }
+
     private static String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
