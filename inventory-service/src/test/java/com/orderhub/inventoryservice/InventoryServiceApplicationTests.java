@@ -1,4 +1,4 @@
-package com.orderhub.inventory_service;
+package com.orderhub.inventoryservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
