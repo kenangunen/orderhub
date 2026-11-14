@@ -4,6 +4,7 @@ import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,12 +25,9 @@ import java.util.UUID;
 @Slf4j
 @RequestMapping("/api/v1/products")
 @RestController
+@RequiredArgsConstructor
 public class ProductController {
     private final ProductService productService;
-
-    public ProductController(ProductService productService) {
-        this.productService = productService;
-    }
 
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAll() {

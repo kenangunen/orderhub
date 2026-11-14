@@ -6,19 +6,19 @@ import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
-
-    public ProductService(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
 
     public ProductResponse create(CreateProductRequest request) {
         Product product = Product.create(
@@ -29,6 +29,9 @@ public class ProductService {
                 request.category()
         );
         Product saved = productRepository.save(product);
+
+        log.info("Created product with id {}", saved.getId());
+
         return ProductResponse.from(saved);
     }
 
@@ -51,11 +54,15 @@ public class ProductService {
                 request.category()
         );
         productRepository.save(product);
+
+        log.info("Updated product with id {}", product.getId());
     }
 
     public void delete(UUID id) {
         findProductOrThrow(id);
         productRepository.deleteById(id);
+
+        log.info("Deleted product with id {}", id);
     }
 
     private Product findProductOrThrow(UUID id) {

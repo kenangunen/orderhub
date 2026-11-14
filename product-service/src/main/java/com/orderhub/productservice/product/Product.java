@@ -1,15 +1,29 @@
 package com.orderhub.productservice.product;
 
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+@Getter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true)
 public class Product {
 
+    @ToString.Include
     private final UUID id;
+
+    @EqualsAndHashCode.Include
+    @ToString.Include
     private final String sku;
+
+    @ToString.Include
     private String name;
+
     private String description;
     private BigDecimal price;
     private String category;
@@ -68,61 +82,8 @@ public class Product {
         touch();
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public String getSku() {
-        return sku;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
     private void touch() {
         this.updatedAt = Instant.now();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Product other)) return false;
-        return Objects.equals(sku, other.sku);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(sku);
-    }
-
-    @Override
-    public String toString() {
-        return "Product[id=" + id + ", sku=" + sku + ", name=" + name + "]";
     }
 
     private static String requireText(String value, String fieldName) {
