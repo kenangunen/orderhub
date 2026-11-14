@@ -4,19 +4,12 @@ import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
@@ -44,7 +37,7 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductResponse> create(@RequestBody CreateProductRequest createProductRequest) {
+    public ResponseEntity<ProductResponse> create(@Valid @RequestBody CreateProductRequest createProductRequest) {
         log.debug("REST request to create product : {}", createProductRequest);
 
         ProductResponse created = productService.create(createProductRequest);
@@ -55,7 +48,7 @@ public class ProductController {
 
     @PutMapping("/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void update(@PathVariable("productId") UUID productId, @RequestBody UpdateProductRequest updateProductRequest) {
+    public void update(@PathVariable("productId") UUID productId, @Valid @RequestBody UpdateProductRequest updateProductRequest) {
         log.debug("REST request to update product : {}", updateProductRequest);
 
         productService.update(productId, updateProductRequest);
