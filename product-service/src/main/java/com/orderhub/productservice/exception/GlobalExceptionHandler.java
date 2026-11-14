@@ -52,4 +52,15 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    // Service'ten fırlayan "kaynak yok" hatası → 404
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ProblemDetail handleProductNotFound(ProductNotFoundException ex) {
+        // detail: exception mesajı ("Product not found: <id>")
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, ex.getMessage()
+        );
+        problem.setTitle("Product Not Found");
+        return problem;
+    }
+
 }
