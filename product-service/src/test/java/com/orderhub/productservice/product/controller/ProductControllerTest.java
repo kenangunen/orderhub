@@ -1,5 +1,6 @@
 package com.orderhub.productservice.product.controller;
 
+import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
@@ -17,10 +18,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.mockito.Mockito.verify;
 
 // Sadece ProductController'ın web katmanını (URL eşleşmesi, JSON, status kodları) yükler; service ve repository yüklenmez.
 @WebMvcTest(ProductController.class)
@@ -78,8 +79,8 @@ class ProductControllerTest {
         when(productService.create(request)).thenReturn(sampleResponse(id));
 
         mockMvc.perform(post("/api/v1/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(jsonMapper.writeValueAsString(request)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/products/" + id))
                 .andExpect(jsonPath("$.id").value(id.toString()));
@@ -129,5 +130,102 @@ class ProductControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(productService).update(id, request);
+    }
+
+    // TEST: İsim boşsa 400 + ProblemDetail döner, service hiç çağrılmaz
+    @Test
+    void create_blankName_returns400WithFieldError() throws Exception {
+        CreateProductRequest request = validCreateRequest().withName(""); // tek alanı boz
+
+        mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors.name").value("Ürün adı boş olamaz"));
+
+        verify(productService, never()).create(any());   // validation metottan önce durdurdu
+    }
+
+    // TEST: Birden fazla hatalı alan varsa hepsi tek cevapta döner
+    @Test
+    void create_multipleInvalidFields_returnsAllErrors() throws Exception {
+        CreateProductRequest request = validCreateRequest()
+                .withName("")
+                .withPrice(new BigDecimal("-5"));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.name").exists())
+                .andExpect(jsonPath("$.errors.price").exists());
+    }
+
+    // TEST: PUT'ta da @Valid çalışır; fiyat 0 → 400, update çağrılmaz
+    @Test
+    void update_zeroPrice_returns400() throws Exception {
+        UpdateProductRequest request = validUpdateRequest().withPrice(BigDecimal.ZERO);
+
+        mockMvc.perform(put("/api/v1/products/{id}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.price").value("Fiyat sıfırdan büyük olmalı"));
+
+        verify(productService, never()).update(any(), any());
+    }
+
+    // TEST: limit verilirse service'e aynen iletilir
+    @Test
+    void getAll_withLimit_passesLimitToService() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("limit", "5"))
+                .andExpect(status().isOk());
+
+        verify(productService).getAll(eq(5));
+    }
+
+    // TEST: limit 100'ü aşarsa method validation → 400
+    @Test
+    void getAll_limitTooHigh_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("limit", "1000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.limit").value("limit en fazla 100 olabilir"));
+
+        verify(productService, never()).getAll(anyInt());
+    }
+
+    // TEST: Service ProductNotFoundException fırlatırsa 404 ProblemDetail döner
+    @Test
+    void getById_missingProduct_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getById(id)).thenThrow(new ProductNotFoundException(id));   // senaryoyu biz kuruyoruz
+
+        mockMvc.perform(get("/api/v1/products/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Product Not Found"))
+                .andExpect(jsonPath("$.detail").value("Product not found: " + id));
+    }
+
+    // TEST: id UUID değilse service'e gelmeden 400 (tip dönüşüm hatası)
+    @Test
+    void getById_invalidUuid_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/products/abc"))
+                .andExpect(status().isBadRequest());
+
+        verify(productService, never()).getById(any());
+    }
+
+    // Tüm kuralları geçen istek; testlerde withX(...) ile tek alanı bozarız
+    private CreateProductRequest validCreateRequest() {
+        return new CreateProductRequest("SKU-001", "Kalem", "Mavi tükenmez",
+                new BigDecimal("10.00"), "Kırtasiye");
+    }
+
+    private UpdateProductRequest validUpdateRequest() {
+        return new UpdateProductRequest("Kalem", "Mavi tükenmez",
+                new BigDecimal("10.00"), "Kırtasiye");
     }
 }
