@@ -36,14 +36,10 @@ public class ProductService {
     }
 
     public ProductResponse getById(UUID id) {
-        log.info("Getting product with id {}", id);
-
         return ProductResponse.from(findProductOrThrow(id));
     }
 
     public List<ProductResponse> getAll(int limit) {
-        log.info("Getting all products");
-
         return productRepository.findAll().stream()
                 .limit(limit) // en fazla limit kadar ürün
                 .map(ProductResponse::from)
