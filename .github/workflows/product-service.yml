@@ -1,0 +1,40 @@
+# Workflow'un GitHub Actions sekmesinde görünecek adı
+name: product-service CI
+
+# Ne zaman çalışsın?
+on:
+  push:
+    branches: [main]
+    # Sadece bu yollar değişince çalış (mono-repo: diğer servisler tetiklemesin)
+    paths:
+      - 'product-service/**'
+      - '.github/workflows/product-service.yml'
+  pull_request:
+    paths:
+      - 'product-service/**'
+      - '.github/workflows/product-service.yml'
+
+jobs:
+  build:
+    # GitHub'ın verdiği temiz bir Linux makinesi
+    runs-on: ubuntu-latest
+
+    # Aşağıdaki bütün "run" komutları product-service klasöründe çalışsın
+    defaults:
+      run:
+        working-directory: product-service
+
+    steps:
+      # 1) Repo kodunu makineye indir
+      - uses: actions/checkout@v4
+
+      # 2) Java 21 kur; Maven bağımlılıklarını cache'le (sonraki build'ler hızlanır)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: product-service/pom.xml
+
+      # 3) Derle + test et + paketle. -B: log'u sade yaz (batch mode)
+      - run: ./mvnw -B verify
