@@ -5,6 +5,8 @@ import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,10 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.web.bind.annotation.RequestParam;
+
 @Slf4j
 @RequestMapping("/api/v1/products")
 @RestController
@@ -23,10 +29,15 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAll() {
-        log.info("Getting all products");
+    public ResponseEntity<List<ProductResponse>> getAll(
+            @RequestParam(name = "limit", defaultValue = "20")
+            @Min(value = 1, message = "limit en az 1 olmalı")
+            @Max(value = 100, message = "limit en fazla 100 olabilir")
+            int limit
+    ) {
+        log.debug("Getting all products, limit: {}", limit);
 
-        return new ResponseEntity<>(productService.getAll(), HttpStatus.OK);
+        return new ResponseEntity<>(productService.getAll(limit), HttpStatus.OK);
     }
 
     @GetMapping("/{productId}")

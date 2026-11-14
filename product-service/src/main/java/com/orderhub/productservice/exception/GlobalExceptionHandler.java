@@ -5,6 +5,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,4 +33,23 @@ public class GlobalExceptionHandler {
 
         return problem;
     }
+
+    // Parametre kısıtı (@Min/@Max...) ihlal edilirse bu exception fırlar
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ProblemDetail handleMethodValidation(HandlerMethodValidationException ex) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        // Her parametrenin sonucu → parametre adı + mesaj
+        ex.getParameterValidationResults().forEach(result ->
+                result.getResolvableErrors().forEach(error ->
+                        errors.putIfAbsent(
+                                result.getMethodParameter().getParameterName(),
+                                error.getDefaultMessage())));
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "İstek parametreleri doğrulamadan geçemedi");
+        problem.setTitle("Validation failed");
+        problem.setProperty("errors", errors);
+        return problem;
+    }
+
 }

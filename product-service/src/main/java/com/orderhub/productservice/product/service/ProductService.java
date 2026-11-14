@@ -39,8 +39,9 @@ public class ProductService {
         return ProductResponse.from(findProductOrThrow(id));
     }
 
-    public List<ProductResponse> getAll() {
+    public List<ProductResponse> getAll(int limit) {
         return productRepository.findAll().stream()
+                .limit(limit) // en fazla limit kadar ürün
                 .map(ProductResponse::from)
                 .toList();
     }

@@ -2,6 +2,7 @@ package com.orderhub.productservice.product.controller;
 
 import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
+import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,10 +18,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.mockito.Mockito.verify;
 
 // Sadece ProductController'ın web katmanını (URL eşleşmesi, JSON, status kodları) yükler; service ve repository yüklenmez.
@@ -57,7 +56,7 @@ class ProductControllerTest {
     void getAll_returnsProducts() throws Exception {
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
-        when(productService.getAll()).thenReturn(List.of(sampleResponse(id1), sampleResponse(id2)));
+        when(productService.getAll(20)).thenReturn(List.of(sampleResponse(id1), sampleResponse(id2)));
 
         mockMvc.perform(get("/api/v1/products"))
                 .andExpect(status().isOk())
@@ -113,5 +112,22 @@ class ProductControllerTest {
         );
     }
 
+    @Test
+    void update_returns204() throws Exception {
+        // given
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = new UpdateProductRequest(
+                "Mekanik klavye Pro",
+                "TR Q, kırmızı switch",
+                new BigDecimal("2149.90"),
+                "Elektronik");
 
+        // when + then
+        mockMvc.perform(put("/api/v1/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(productService).update(id, request);
+    }
 }
