@@ -473,7 +473,7 @@
               }
             },
             "url": {
-              "raw": "{{inventoryBaseUrl}}/api/v1/inventory/SKU-001",
+              "raw": "{{inventoryBaseUrl}}/api/v1/inventory/KLV-0001",
               "host": [
                 "{{inventoryBaseUrl}}"
               ],
@@ -481,7 +481,7 @@
                 "api",
                 "v1",
                 "inventory",
-                "SKU-001"
+                "KLV-0001"
               ]
             }
           },
@@ -517,11 +517,11 @@
   "variable": [
     {
       "key": "productBaseUrl",
-      "value": "http://localhost:8081"
+      "value": ""
     },
     {
       "key": "inventoryBaseUrl",
-      "value": "http://localhost:8082"
+      "value": ""
     }
   ]
 }
