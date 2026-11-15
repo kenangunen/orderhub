@@ -517,11 +517,11 @@
   "variable": [
     {
       "key": "productBaseUrl",
-      "value": ""
+      "value": "http://localhost:8081"
     },
     {
       "key": "inventoryBaseUrl",
-      "value": ""
+      "value": "http://localhost:8082"
     }
   ]
 }
