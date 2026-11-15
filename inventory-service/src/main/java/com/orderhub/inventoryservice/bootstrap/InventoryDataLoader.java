@@ -1,10 +1,9 @@
-package com.orderhub.inventoryservice.inventory.bootstrap;
+package com.orderhub.inventoryservice.bootstrap;
 
 import com.orderhub.inventoryservice.inventory.InventoryItem;
 import com.orderhub.inventoryservice.inventory.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -21,7 +20,7 @@ public class InventoryDataLoader implements ApplicationRunner {
     private final InventoryRepository inventoryRepository;
 
     @Override
-    public void run(@NonNull ApplicationArguments args) {
+    public void run(ApplicationArguments args) {
         if (!inventoryRepository.findAll().isEmpty()) {
             log.info("Inventory items already exist, skipping bootstrap");
             return;
@@ -35,7 +34,6 @@ public class InventoryDataLoader implements ApplicationRunner {
 
         items.forEach(inventoryRepository::save);
 
-        log.info("Loaded {} Inventory items for dev profile", items.size());
+        log.info("Loaded {} inventory items for dev profile", items.size());
     }
 }
-
