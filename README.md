@@ -6,6 +6,7 @@ Java 21 + Spring Boot 4 ile mini e-ticaret sipariş platformu (mikroservis mimar
 
 ## Servisler
 
-| Servis | Port | Çalıştırma |
-|---|---|---|
-| product-service | 8080 | `cd product-service && ./mvnw spring-boot:run` |
+| Servis | Port | Çalıştırma                                       |
+|---|------|--------------------------------------------------|
+| product-service | 8081 | `cd product-service && ./mvnw spring-boot:run`   |
+product-service | 8082 | `cd inventory-service && ./mvnw spring-boot:run` |
