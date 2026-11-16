@@ -1,5 +1,6 @@
 package com.orderhub.productservice.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.orderhub.productservice.product.Product;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ public record ProductResponse(
         Instant createdAt,
         Instant updatedAt,
         // inventory'den gelir; null = bilinmiyor (kayıt yok ya da inventory'ye ulaşılamadı)
+        @JsonInclude(JsonInclude.Include.NON_NULL)   // Sadece bu alan: değer null ise JSON'a hiç yazılmaz
         Integer quantityOnHand
 ) {
     // Stok bilgisi olmadan: create, update, liste gibi yerler bunu kullanmaya devam eder

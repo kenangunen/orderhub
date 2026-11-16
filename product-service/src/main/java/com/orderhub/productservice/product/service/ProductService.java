@@ -39,7 +39,13 @@ public class ProductService {
         return ProductResponse.from(saved);
     }
 
+    // Sadece ürün bilgisi: inventory çağrılmaz
     public ProductResponse getById(UUID id) {
+        return ProductResponse.from(findProductOrThrow(id));
+    }
+
+    // Ürün + stok: sadece istemci istediğinde (showInventory=true) çağrılır
+    public ProductResponse getByIdWithInventory(UUID id) {
         Product product = findProductOrThrow(id);
         return ProductResponse.from(product, fetchQuantityOnHand(product.getSku()));
     }

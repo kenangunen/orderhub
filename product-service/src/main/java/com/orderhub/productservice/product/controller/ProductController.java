@@ -17,10 +17,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import org.springframework.web.bind.annotation.RequestParam;
-
 @Slf4j
 @RequestMapping("/api/v1/products")
 @RestController
@@ -41,10 +37,16 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ResponseEntity<ProductResponse> getById(@PathVariable("productId") UUID productId) {
-        log.debug("REST request to get product with id: {}", productId);
+    public ResponseEntity<ProductResponse> getById(
+            @PathVariable("productId") UUID productId,
+            // Gönderilmezse false → inventory hiç çağrılmaz. Primitive boolean: null olamaz, kontrol gerekmez
+            @RequestParam(name = "showInventory", defaultValue = "false") boolean showInventory) {
 
-        return new ResponseEntity<>(productService.getById(productId), HttpStatus.OK);
+        ProductResponse response = showInventory
+                ? productService.getByIdWithInventory(productId)
+                : productService.getById(productId);
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PostMapping
