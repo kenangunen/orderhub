@@ -246,7 +246,7 @@
               }
             },
             "url": {
-              "raw": "{{productBaseUrl}}/api/v1/products/9f3e7db6-881f-43e6-8498-43b806a65266",
+              "raw": "{{productBaseUrl}}/api/v1/products/0ba8aee1-1838-4a46-9460-2f31fbcd8cee?showInventory=true",
               "host": [
                 "{{productBaseUrl}}"
               ],
@@ -254,7 +254,13 @@
                 "api",
                 "v1",
                 "products",
-                "9f3e7db6-881f-43e6-8498-43b806a65266"
+                "0ba8aee1-1838-4a46-9460-2f31fbcd8cee"
+              ],
+              "query": [
+                {
+                  "key": "showInventory",
+                  "value": "true"
+                }
               ]
             }
           },
