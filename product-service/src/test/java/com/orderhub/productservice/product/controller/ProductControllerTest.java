@@ -100,6 +100,7 @@ class ProductControllerTest {
 
     private ProductResponse sampleResponse(UUID id) {
         Instant now = Instant.parse("2026-11-12T09:00:00Z");
+
         return new ProductResponse(
                 id,
                 "KLV-0001",
@@ -109,7 +110,8 @@ class ProductControllerTest {
                 "Elektronik",
                 true,
                 now,
-                now
+                now,
+                null   // quantityOnHand: bu testler stoğu test etmiyor
         );
     }
 

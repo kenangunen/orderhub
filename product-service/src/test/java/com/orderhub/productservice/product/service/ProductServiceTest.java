@@ -1,5 +1,6 @@
 package com.orderhub.productservice.product.service;
 
+import com.orderhub.productservice.client.InventoryClient;
 import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
@@ -12,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,6 +30,9 @@ import static org.mockito.Mockito.when;
 // Spring yok; Mockito, @Mock ve @InjectMocks alanlarını her testten önce yeniden oluşturur.
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
+
+    @Mock
+    InventoryClient inventoryClient;
 
     @Mock
     ProductRepository productRepository;   // sahte repository
@@ -180,6 +185,47 @@ class ProductServiceTest {
         assertThatThrownBy(() -> productService.delete(id))
                 .isInstanceOf(ProductNotFoundException.class);
         verify(productRepository, never()).deleteById(any());
+    }
+
+    // TEST: inventory stoğu bildiriyorsa ürün detayında quantityOnHand dolu gelir
+    @Test
+    void getById_inventoryAvailable_includesQuantity() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        // Sahte client: bu sku için 50 adet var
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.of(50));
+
+        ProductResponse response = productService.getById(product.getId());
+
+        assertThat(response.quantityOnHand()).isEqualTo(50);
+    }
+
+    // TEST: inventory'de kayıt yoksa ürün yine döner, quantityOnHand null (0 değil)
+    @Test
+    void getById_noInventoryRecord_quantityIsNull() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.empty());
+
+        ProductResponse response = productService.getById(product.getId());
+
+        assertThat(response.quantityOnHand()).isNull();
+    }
+
+    // TEST: inventory'ye ulaşılamazsa exception dışarı sızmaz; ürün döner, quantityOnHand null
+    @Test
+    void getById_inventoryDown_returnsProductWithNullQuantity() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        // inventory çökmüş gibi davran: bağlantı hatası
+        when(inventoryClient.getAvailableQty(product.getSku()))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        ProductResponse response = productService.getById(product.getId());
+
+        // Ürün bilgisi eksiksiz geliyor, sadece stok bilinmiyor
+        assertThat(response.sku()).isEqualTo(product.getSku());
+        assertThat(response.quantityOnHand()).isNull();
     }
 
     // Testlerde "repository'de zaten var olan" ürün
