@@ -88,3 +88,17 @@ ve servisler bağımsız değiştirilemez (distributed monolith).
   transaction yok. → Hafta 3: saga + idempotent consumer, eventual consistency.
 - **Operasyon yükü:** Üç servis, üç port, üç veritabanı.
   → B10-A: port tablosu; B10-D: ortak parent pom; ileride Docker Compose.
+- 
+## Ek (2026-11-16): Stok bilgisi opt-in
+
+**Karar:** Ürün detayı stok bilgisini sadece `?showInventory=true` ile içerir; varsayılan `false`.
+Stok istenmediğinde inventory-service hiç çağrılmaz.
+
+- Service'te iki ayrı metot: `getById` (stoksuz) ve `getByIdWithInventory` (stoklu).
+  Boolean parametreli tek metot (flag argument) yerine, her metot tek iş yapar ve adı ne yaptığını söyler.
+- `quantityOnHand` değeri yoksa JSON'da hiç görünmez (`@JsonInclude(NON_NULL)`, sadece bu alan).
+- Bilinen bedel: Stok istendi ama inventory'ye ulaşılamadıysa da alan görünmez; istemci
+  "bilinmiyor" ile "istenmedi"yi ayırt edemez. Kesin bilgi isteyen istemciler için
+  `GET /products/{id}/inventory` (inventory kapalıysa 503) eklenecek.
+- Reddedilen: ayrı bir `stockStatus` alanı. Bugün bu ayrıma ihtiyacı olan istemci yok,
+  sözleşme gereksiz büyür.
