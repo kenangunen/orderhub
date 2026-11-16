@@ -39,13 +39,14 @@ class ProductControllerTest {
     @MockitoBean
     ProductService productService;
 
+    // ---------- GET /{id} ----------
+
+    // TEST: var olan ürün için 200 ve ürün alanları döner
     @Test
     void getById_returnsProduct() throws Exception {
-        // given
         UUID id = UUID.randomUUID();
         when(productService.getById(id)).thenReturn(sampleResponse(id));
 
-        // when + then
         mockMvc.perform(get("/api/v1/products/{id}", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
@@ -53,6 +54,58 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.price").value(1899.90));
     }
 
+    // TEST: parametresiz istek stoksuz metodu çağırır; quantityOnHand JSON'da hiç yok
+    @Test
+    void getById_withoutShowInventory_omitsQuantity() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getById(id)).thenReturn(sampleResponse(id));
+
+        mockMvc.perform(get("/api/v1/products/{id}", id))
+                .andExpect(status().isOk())
+                // NON_NULL: değer null → alan JSON'a yazılmadı
+                .andExpect(jsonPath("$.quantityOnHand").doesNotExist());
+
+        verify(productService, never()).getByIdWithInventory(any());
+    }
+
+    // TEST: ?showInventory=true stoklu metodu çağırır; quantityOnHand JSON'da görünür
+    @Test
+    void getById_withShowInventory_includesQuantity() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getByIdWithInventory(id)).thenReturn(sampleResponse(id, 50));
+
+        mockMvc.perform(get("/api/v1/products/{id}", id).param("showInventory", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quantityOnHand").value(50));
+
+        verify(productService, never()).getById(any());
+    }
+
+    // TEST: Service ProductNotFoundException fırlatırsa 404 ProblemDetail döner
+    @Test
+    void getById_missingProduct_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getById(id)).thenThrow(new ProductNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/products/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Product Not Found"))
+                .andExpect(jsonPath("$.detail").value("Product not found: " + id));
+    }
+
+    // TEST: id UUID değilse service'e gelmeden 400 (tip dönüşüm hatası)
+    @Test
+    void getById_invalidUuid_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/products/abc"))
+                .andExpect(status().isBadRequest());
+
+        verify(productService, never()).getById(any());
+    }
+
+    // ---------- GET (liste) ----------
+
+    // TEST: liste endpoint'i varsayılan limit (20) ile service'ten gelen ürünleri döner
     @Test
     void getAll_returnsProducts() throws Exception {
         UUID id1 = UUID.randomUUID();
@@ -65,6 +118,28 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$[0].id").value(id1.toString()));
     }
 
+    // TEST: limit verilirse service'e aynen iletilir
+    @Test
+    void getAll_withLimit_passesLimitToService() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("limit", "5"))
+                .andExpect(status().isOk());
+
+        verify(productService).getAll(eq(5));
+    }
+
+    // TEST: limit 100'ü aşarsa method validation → 400
+    @Test
+    void getAll_limitTooHigh_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/products").param("limit", "1000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.limit").value("limit en fazla 100 olabilir"));
+
+        verify(productService, never()).getAll(anyInt());
+    }
+
+    // ---------- POST ----------
+
+    // TEST: geçerli istek 201 + Location header + oluşan ürün döner
     @Test
     void create_returns201WithLocation() throws Exception {
         CreateProductRequest request = new CreateProductRequest(
@@ -73,9 +148,7 @@ class ProductControllerTest {
                 "TR Q, kahverengi switch",
                 new BigDecimal("1899.90"),
                 "Elektronik");
-
         UUID id = UUID.randomUUID();
-
         when(productService.create(request)).thenReturn(sampleResponse(id));
 
         mockMvc.perform(post("/api/v1/products")
@@ -84,54 +157,6 @@ class ProductControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/products/" + id))
                 .andExpect(jsonPath("$.id").value(id.toString()));
-    }
-
-    @Test
-    void delete_returns204() throws Exception {
-        // given
-        UUID id = UUID.randomUUID();
-
-        // when + then
-        mockMvc.perform(delete("/api/v1/products/{id}", id))
-                .andExpect(status().isNoContent());
-
-        verify(productService).delete(id);
-    }
-
-    private ProductResponse sampleResponse(UUID id) {
-        Instant now = Instant.parse("2026-11-12T09:00:00Z");
-
-        return new ProductResponse(
-                id,
-                "KLV-0001",
-                "Mekanik klavye",
-                "TR Q, kahverengi switch",
-                new BigDecimal("1899.90"),
-                "Elektronik",
-                true,
-                now,
-                now,
-                null   // quantityOnHand: bu testler stoğu test etmiyor
-        );
-    }
-
-    @Test
-    void update_returns204() throws Exception {
-        // given
-        UUID id = UUID.randomUUID();
-        UpdateProductRequest request = new UpdateProductRequest(
-                "Mekanik klavye Pro",
-                "TR Q, kırmızı switch",
-                new BigDecimal("2149.90"),
-                "Elektronik");
-
-        // when + then
-        mockMvc.perform(put("/api/v1/products/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(request)))
-                .andExpect(status().isNoContent());
-
-        verify(productService).update(id, request);
     }
 
     // TEST: İsim boşsa 400 + ProblemDetail döner, service hiç çağrılmaz
@@ -165,6 +190,26 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.errors.price").exists());
     }
 
+    // ---------- PUT ----------
+
+    // TEST: geçerli güncelleme 204 döner ve service doğru id + istekle çağrılır
+    @Test
+    void update_returns204() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = new UpdateProductRequest(
+                "Mekanik klavye Pro",
+                "TR Q, kırmızı switch",
+                new BigDecimal("2149.90"),
+                "Elektronik");
+
+        mockMvc.perform(put("/api/v1/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(productService).update(id, request);
+    }
+
     // TEST: PUT'ta da @Valid çalışır; fiyat 0 → 400, update çağrılmaz
     @Test
     void update_zeroPrice_returns400() throws Exception {
@@ -179,45 +224,41 @@ class ProductControllerTest {
         verify(productService, never()).update(any(), any());
     }
 
-    // TEST: limit verilirse service'e aynen iletilir
+    // ---------- DELETE ----------
+
+    // TEST: silme 204 döner ve service doğru id ile çağrılır
     @Test
-    void getAll_withLimit_passesLimitToService() throws Exception {
-        mockMvc.perform(get("/api/v1/products").param("limit", "5"))
-                .andExpect(status().isOk());
-
-        verify(productService).getAll(eq(5));
-    }
-
-    // TEST: limit 100'ü aşarsa method validation → 400
-    @Test
-    void getAll_limitTooHigh_returns400() throws Exception {
-        mockMvc.perform(get("/api/v1/products").param("limit", "1000"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.limit").value("limit en fazla 100 olabilir"));
-
-        verify(productService, never()).getAll(anyInt());
-    }
-
-    // TEST: Service ProductNotFoundException fırlatırsa 404 ProblemDetail döner
-    @Test
-    void getById_missingProduct_returns404() throws Exception {
+    void delete_returns204() throws Exception {
         UUID id = UUID.randomUUID();
-        when(productService.getById(id)).thenThrow(new ProductNotFoundException(id));   // senaryoyu biz kuruyoruz
 
-        mockMvc.perform(get("/api/v1/products/{id}", id))
-                .andExpect(status().isNotFound())
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Product Not Found"))
-                .andExpect(jsonPath("$.detail").value("Product not found: " + id));
+        mockMvc.perform(delete("/api/v1/products/{id}", id))
+                .andExpect(status().isNoContent());
+
+        verify(productService).delete(id);
     }
 
-    // TEST: id UUID değilse service'e gelmeden 400 (tip dönüşüm hatası)
-    @Test
-    void getById_invalidUuid_returns400() throws Exception {
-        mockMvc.perform(get("/api/v1/products/abc"))
-                .andExpect(status().isBadRequest());
+    // ---------- Helper'lar ----------
 
-        verify(productService, never()).getById(any());
+    // Stok bilgisi olmayan örnek cevap; mevcut testler bunu kullanır
+    private ProductResponse sampleResponse(UUID id) {
+        return sampleResponse(id, null);
+    }
+
+    // Stok bilgisiyle örnek cevap; showInventory testleri için
+    private ProductResponse sampleResponse(UUID id, Integer quantityOnHand) {
+        Instant now = Instant.parse("2026-11-12T09:00:00Z");
+        return new ProductResponse(
+                id,
+                "KLV-0001",
+                "Mekanik klavye",
+                "TR Q, kahverengi switch",
+                new BigDecimal("1899.90"),
+                "Elektronik",
+                true,
+                now,
+                now,
+                quantityOnHand
+        );
     }
 
     // Tüm kuralları geçen istek; testlerde withX(...) ile tek alanı bozarız

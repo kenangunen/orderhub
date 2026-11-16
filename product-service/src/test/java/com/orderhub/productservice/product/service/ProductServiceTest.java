@@ -23,22 +23,23 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 // Spring yok; Mockito, @Mock ve @InjectMocks alanlarını her testten önce yeniden oluşturur.
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
     @Mock
-    InventoryClient inventoryClient;
+    InventoryClient inventoryClient;       // sahte inventory client
 
     @Mock
     ProductRepository productRepository;   // sahte repository
 
     @InjectMocks
-    ProductService productService;         // gerçek service, mock constructor'a verilir
+    ProductService productService;         // gerçek service, mock'lar constructor'a verilir
+
+    // ---------- create ----------
 
     // TEST: create, ürünü request'teki bilgilerle kaydedip cevaba çeviriyor mu?
     @Test
@@ -74,7 +75,6 @@ class ProductServiceTest {
         CreateProductRequest request = new CreateProductRequest(
                 "KLV-0001", "Mekanik klavye", null, new BigDecimal("-5"), "Elektronik");
 
-        // Act & Assert
         assertThatThrownBy(() -> productService.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("price");
@@ -82,11 +82,12 @@ class ProductServiceTest {
         verify(productRepository, never()).save(any());   // save hiç çağrılmamalı
     }
 
+    // ---------- getById (stoksuz) ----------
+
     // TEST: getById, var olan ürünü cevaba çevirip dönüyor mu?
     @Test
     void getById_existingProduct_returnsResponse() {
         Product product = existingProduct();
-
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
 
         ProductResponse response = productService.getById(product.getId());
@@ -106,6 +107,64 @@ class ProductServiceTest {
                 .hasMessageContaining(id.toString());     // mesajda id olmalı
     }
 
+    // TEST: stok istenmeyen getById inventory'yi hiç çağırmaz, quantityOnHand null kalır
+    @Test
+    void getById_doesNotCallInventory() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+
+        ProductResponse response = productService.getById(product.getId());
+
+        assertThat(response.quantityOnHand()).isNull();
+        // Task 16'nın kazancı: gereksiz HTTP çağrısı yok
+        verify(inventoryClient, never()).getAvailableQty(anyString());
+    }
+
+    // ---------- getByIdWithInventory (stoklu) ----------
+
+    // TEST: inventory stoğu bildiriyorsa stoklu detayda quantityOnHand dolu gelir
+    @Test
+    void getByIdWithInventory_inventoryAvailable_includesQuantity() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        // Sahte client: bu sku için 50 adet var
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.of(50));
+
+        ProductResponse response = productService.getByIdWithInventory(product.getId());
+
+        assertThat(response.quantityOnHand()).isEqualTo(50);
+    }
+
+    // TEST: inventory'de kayıt yoksa ürün yine döner, quantityOnHand null (0 değil)
+    @Test
+    void getByIdWithInventory_noInventoryRecord_quantityIsNull() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.empty());
+
+        ProductResponse response = productService.getByIdWithInventory(product.getId());
+
+        assertThat(response.quantityOnHand()).isNull();
+    }
+
+    // TEST: inventory'ye ulaşılamazsa exception dışarı sızmaz; ürün döner, quantityOnHand null
+    @Test
+    void getByIdWithInventory_inventoryDown_returnsProductWithNullQuantity() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        // inventory çökmüş gibi davran: bağlantı hatası
+        when(inventoryClient.getAvailableQty(product.getSku()))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        ProductResponse response = productService.getByIdWithInventory(product.getId());
+
+        // Ürün bilgisi eksiksiz geliyor, sadece stok bilinmiyor
+        assertThat(response.sku()).isEqualTo(product.getSku());
+        assertThat(response.quantityOnHand()).isNull();
+    }
+
+    // ---------- getAll ----------
+
     // TEST: getAll, her ürünü cevaba çevirip sırayı koruyor mu?
     @Test
     void getAll_mapsEveryProductToResponse() {
@@ -120,6 +179,8 @@ class ProductServiceTest {
                 .extracting(ProductResponse::sku)           // listeden sadece sku'ları al
                 .containsExactly("KLV-0001", "MSE-0001");   // bu sırayla
     }
+
+    // ---------- update ----------
 
     // TEST: update, değişiklikleri ürüne uygulayıp kaydediyor mu?
     @Test
@@ -165,6 +226,8 @@ class ProductServiceTest {
         verify(productRepository, never()).save(any());
     }
 
+    // ---------- delete ----------
+
     // TEST: delete, var olan ürünü doğru id ile siliyor mu?
     @Test
     void delete_existingProduct_deletesById() {
@@ -187,46 +250,7 @@ class ProductServiceTest {
         verify(productRepository, never()).deleteById(any());
     }
 
-    // TEST: inventory stoğu bildiriyorsa ürün detayında quantityOnHand dolu gelir
-    @Test
-    void getById_inventoryAvailable_includesQuantity() {
-        Product product = existingProduct();
-        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
-        // Sahte client: bu sku için 50 adet var
-        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.of(50));
-
-        ProductResponse response = productService.getById(product.getId());
-
-        assertThat(response.quantityOnHand()).isEqualTo(50);
-    }
-
-    // TEST: inventory'de kayıt yoksa ürün yine döner, quantityOnHand null (0 değil)
-    @Test
-    void getById_noInventoryRecord_quantityIsNull() {
-        Product product = existingProduct();
-        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
-        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.empty());
-
-        ProductResponse response = productService.getById(product.getId());
-
-        assertThat(response.quantityOnHand()).isNull();
-    }
-
-    // TEST: inventory'ye ulaşılamazsa exception dışarı sızmaz; ürün döner, quantityOnHand null
-    @Test
-    void getById_inventoryDown_returnsProductWithNullQuantity() {
-        Product product = existingProduct();
-        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
-        // inventory çökmüş gibi davran: bağlantı hatası
-        when(inventoryClient.getAvailableQty(product.getSku()))
-                .thenThrow(new ResourceAccessException("Connection refused"));
-
-        ProductResponse response = productService.getById(product.getId());
-
-        // Ürün bilgisi eksiksiz geliyor, sadece stok bilinmiyor
-        assertThat(response.sku()).isEqualTo(product.getSku());
-        assertThat(response.quantityOnHand()).isNull();
-    }
+    // ---------- Helper ----------
 
     // Testlerde "repository'de zaten var olan" ürün
     private Product existingProduct() {
