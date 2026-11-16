@@ -7,7 +7,6 @@ import java.time.Instant;
 /**
  * Envanter verilerini dış dünyaya (API istemcilerine) güvenli ve temiz bir
  * sözleşmeyle sunmak için kullanılan Response DTO (Data Transfer Object) sınıfıdır.
- *
  * Amaç: İç veritabanı/domain modelini doğrudan dışarı sızdırmamak ve sadece
  * istemcinin görmesi gereken alanları (sku, stok miktarları, güncellenme tarihi) paylaşmaktır.
  */
