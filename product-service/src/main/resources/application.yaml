@@ -6,3 +6,11 @@ server:
   port: 8081
   error:
     include-stacktrace: never
+
+orderhub:
+  inventory:
+    base-url: http://localhost:8082
+    connect-timeout: 1s     # Bağlantı 1 sn'de kurulamazsa vazgeç → servis kapalı demektir
+    read-timeout: 2s     # Bağlandı ama cevap 2 sn'de gelmezse vazgeç → servis yavaş demektir
+
+

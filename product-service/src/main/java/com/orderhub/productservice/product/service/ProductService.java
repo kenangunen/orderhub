@@ -1,5 +1,6 @@
 package com.orderhub.productservice.product.service;
 
+import com.orderhub.productservice.client.InventoryClient;
 import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
@@ -9,6 +10,7 @@ import com.orderhub.productservice.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +21,8 @@ import java.util.UUID;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    // Service sadece arayüzü biliyor; Spring RestClientInventoryClient'ı verecek
+    private final InventoryClient inventoryClient;
 
     public ProductResponse create(CreateProductRequest request) {
         Product product = Product.create(
@@ -36,7 +40,19 @@ public class ProductService {
     }
 
     public ProductResponse getById(UUID id) {
-        return ProductResponse.from(findProductOrThrow(id));
+        Product product = findProductOrThrow(id);
+        return ProductResponse.from(product, fetchQuantityOnHand(product.getSku()));
+    }
+
+    // Stok ek bilgi: inventory'ye ulaşılamazsa ürün yine döner, stok "bilinmiyor" (null) olur
+    private Integer fetchQuantityOnHand(String sku) {
+        try {
+            return inventoryClient.getAvailableQty(sku).orElse(null);
+        } catch (RestClientException e) {
+            // Bağlantı hatası, timeout, 5xx → hepsi RestClientException'ın alt sınıfı
+            log.warn("Inventory unavailable for sku {}: {}", sku, e.getMessage());
+            return null;
+        }
     }
 
     public List<ProductResponse> getAll(int limit) {
