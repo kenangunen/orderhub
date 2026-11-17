@@ -9,6 +9,9 @@ import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 
@@ -24,6 +27,7 @@ public class ProductService {
     // Service sadece arayüzü biliyor; Spring RestClientInventoryClient'ı verecek
     private final InventoryClient inventoryClient;
 
+    @CacheEvict(cacheNames = "productLists", allEntries = true) // yeni ürün tüm listeleri eskitir
     public ProductResponse create(CreateProductRequest request) {
         Product product = Product.create(
                 request.sku(),
@@ -40,6 +44,7 @@ public class ProductService {
     }
 
     // Sadece ürün bilgisi: inventory çağrılmaz
+    @Cacheable(cacheNames = "products", key = "#id")  // ilk çağrı metodu çalıştırır, sonrakiler cache'ten döner
     public ProductResponse getById(UUID id) {
         return ProductResponse.from(findProductOrThrow(id));
     }
@@ -61,6 +66,7 @@ public class ProductService {
         }
     }
 
+    @Cacheable(cacheNames = "productList", key = "#limit")
     public List<ProductResponse> getAll(int limit) {
         return productRepository.findAll().stream()
                 .limit(limit) // en fazla limit kadar ürün
@@ -68,6 +74,10 @@ public class ProductService {
                 .toList();
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "products", key = "#id"),          // sadece bu ürünün kaydı
+            @CacheEvict(cacheNames = "productLists", allEntries = true)  // listeler (Adım 4)
+    })
     public void update(UUID id, UpdateProductRequest request) {
         Product product = findProductOrThrow(id);
         product.updateDetails(
@@ -81,6 +91,10 @@ public class ProductService {
         log.info("Updated product with id {}", product.getId());
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "products", key = "#id"),
+            @CacheEvict(cacheNames = "productLists", allEntries = true)
+    })
     public void delete(UUID id) {
         findProductOrThrow(id);
         productRepository.deleteById(id);
