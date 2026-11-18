@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Kökün kendi parent'ı: Boot'un sürüm tablosu + plugin ayarları buradan gelir -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.2</version>
+        <relativePath/> <!-- yerel klasörde arama, doğrudan repository'den al -->
+    </parent>
+
+    <groupId>com.orderhub</groupId>
+    <artifactId>orderhub-root</artifactId>
+    <version>0.0.1-SNAPSHOT</version>   <!-- servislerle aynı sürüm; 17h'de servisler bunu miras alacak -->
+    <packaging>pom</packaging>          <!-- jar üretmez; sadece modülleri yönetir -->
+    <name>orderhub-root</name>
+
+    <!-- Tüm servislerin ortak değerleri; 17h'den sonra servisler buradan miras alır -->
+    <properties>
+        <java.version>21</java.version>   <!-- Boot parent bunu derleyicinin release ayarına çevirir -->
+        <spring-cloud.version>2025.1.3</spring-cloud.version>   <!-- Oakwood; Boot 4.1 ile uyumlu seri -->
+    </properties>
+
+    <!-- Sürüm tablosu: hiçbir servise bağımlılık EKLEMEZ, sadece "isteyen bu sürümü alır" der -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>       <!-- jar değil, bir pom (sürüm listesi) -->
+                <scope>import</scope>  <!-- içindeki dependencyManagement'ı buraya kopyala -->
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- DİKKAT: buradaki her bağımlılık TÜM servislere zorla girer; sadece gerçekten ortak olanlar -->
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>   <!-- derleme anı aracı; servisin jar'ını kullanan başka projeye geçmez -->
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>         <!-- web'den bağımsız test temeli: JUnit, AssertJ, Mockito -->
+        </dependency>
+    </dependencies>
+
+    <!-- Aggregator: kökte verilen her komut bu klasörlerde de çalışır -->
+    <modules>
+        <module>product-service</module>
+        <module>inventory-service</module>
+    </modules>
+
+    <build>
+        <plugins>
+            <!-- Tüm servislerde Lombok'u annotation processor olarak tanıt (ana kod + test kodu) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>   <!-- property'yi Boot'un BOM'u tanımlıyor -->
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
