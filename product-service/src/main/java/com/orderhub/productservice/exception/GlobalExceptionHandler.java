@@ -14,6 +14,10 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // iki validation handler'ı aynı başlığı ve detail'ı kullansın diye tek yerde
+    private static final String VALIDATION_TITLE = "Validation Failed";
+    private static final String VALIDATION_DETAIL = "İstek doğrulamadan geçemedi";
+
     // Bu exception tipi fırlarsa Spring bu metodu çağırır
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
@@ -25,16 +29,16 @@ public class GlobalExceptionHandler {
 
         // ProblemDetail: Spring'in RFC 9457 hata modeli (type, title, status, detail, instance)
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "İstek doğrulamadan geçemedi");
+                HttpStatus.BAD_REQUEST, VALIDATION_DETAIL);
 
-        problem.setTitle("Validation Failed");
+        problem.setTitle(VALIDATION_TITLE);
         // Standart dışı alanlar setProperty ile eklenir → JSON'da üst seviyede görünür
         problem.setProperty("errors", errors);
 
         return problem;
     }
 
-    // Parametre kısıtı (@Min/@Max...) ihlal edilirse bu exception fırlar
+    // Parametre kısıtı (@Min/@Max/@Pattern...) ihlal edilirse bu exception fırlar
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ProblemDetail handleMethodValidation(HandlerMethodValidationException ex) {
         Map<String, String> errors = new LinkedHashMap<>();
@@ -46,8 +50,8 @@ public class GlobalExceptionHandler {
                                 error.getDefaultMessage())));
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "İstek parametreleri doğrulamadan geçemedi");
-        problem.setTitle("Validation failed");
+                HttpStatus.BAD_REQUEST, VALIDATION_DETAIL);
+        problem.setTitle(VALIDATION_TITLE);
         problem.setProperty("errors", errors);
         return problem;
     }
@@ -55,12 +59,11 @@ public class GlobalExceptionHandler {
     // Service'ten fırlayan "kaynak yok" hatası → 404
     @ExceptionHandler(ProductNotFoundException.class)
     public ProblemDetail handleProductNotFound(ProductNotFoundException ex) {
-        // detail: exception mesajı ("Product not found: <id>")
+        // detail: exception mesajı ("Product not found: <id>" veya "... with sku: <sku>")
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND, ex.getMessage()
         );
         problem.setTitle("Product Not Found");
         return problem;
     }
-
 }

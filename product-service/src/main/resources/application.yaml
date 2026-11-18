@@ -2,7 +2,7 @@ spring:
   application:
     name: product-service
   cache:
-    cache-names: products,productLists    # sabit liste; bilinmeyen isim çalışma anında hata verir
+    cache-names: products,productLists,productsBySku    # sabit liste; bilinmeyen isim çalışma anında hata verir
     caffeine:
       spec: maximumSize=500,expireAfterWrite=5m,recordStats   # boyut sınırı + TTL güvenlik ağı + istatistik
 
@@ -16,7 +16,3 @@ orderhub:
     base-url: http://localhost:8082
     connect-timeout: 1s     # Bağlantı 1 sn'de kurulamazsa vazgeç → servis kapalı demektir
     read-timeout: 2s     # Bağlandı ama cevap 2 sn'de gelmezse vazgeç → servis yavaş demektir
-
-
-
-

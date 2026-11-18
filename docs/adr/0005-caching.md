@@ -2,7 +2,7 @@
 
 ## Durum
 
-Kabul edildi — 17 Kasım 2026
+Kabul edildi — 17 Kasım 2026 · Ek: 18 Kasım 2026 (SKU cache'i)
 
 ## Bağlam
 
@@ -65,8 +65,31 @@ Amaç, soyutlamayı ve invalidation kurallarını şimdi kurmak; kazanç JPA'ya 
 - Cache anotasyonları proxy'ye bağlıdır: aynı sınıf içinden yapılan çağrılarda çalışmaz.
 - Testler: cache davranışı Mockito unit testinde görünmez; `ProductCacheTest` (`@SpringBootTest`) ile doğrulanır.
 
+## Ek — 18 Kasım 2026: SKU ile okuma cache'i (Task 16c)
+
+**Bağlam:** `GET /api/v1/products/sku/{sku}` eklendi (order-service siparişi SKU ile alacak, ADR-0004).
+Sonuç `productsBySku` cache'ine (anahtar `sku`) konuyor. Böylece aynı ürün artık iki cache'te
+duruyor: `products` (id ile) ve `productsBySku` (sku ile).
+
+**Sorun:** `update(id, ...)` ve `delete(id)` metotlarında elimizde sku yok; `@CacheEvict` anahtarı
+parametrelerden kurduğu için sku ile tek kayıt silemiyor.
+
+**Karar:** `update` ve `delete` → `@CacheEvict(cacheNames = "productsBySku", allEntries = true)`.
+`create` evict etmez (yeni sku cache'te olamaz; 404 sonuçları exception olduğu için cache'lenmez).
+
+**Gerekçe:** Yazma işlemleri seyrek; tüm sku cache'ini silmenin maliyeti küçük. `productLists` ile aynı kalıp.
+`UpdateProductRequest`'te sku alanı yok, yani sku değişmez; anahtar hiçbir zaman geçersiz kalmaz.
+
+**Değerlendirilen alternatifler:**
+- Service'e `CacheManager` enjekte edip ürünü bulduktan sonra `evict(product.getSku())`: sadece
+  tek kayıt silinir ama cache kodu iş mantığına karışır, anotasyonların ayrımı bozulur.
+- `productsBySku` sadece sku→id eşlemesini tutar, ürünü `products`'tan alır (tek kaynak): en tutarlı
+  çözüm, ama self-invocation yüzünden ayrı bir bean gerektirir. Yazma sıklığı artarsa yeniden değerlendirilir.
+
+**Risk:** Aynı veri iki cache'te. Yeni bir yazma metodu eklenirse iki cache'i de temizlemek unutulabilir;
+`ProductCacheTest.update_evictsSkuCache` bunun için regresyon testi.
+
 ## İlgili
 
 - ADR-0004: Servis sınırları (stok inventory-service'in verisi)
-- Task 16c: `GET /products/sku/{sku}` ve `productsBySku` cache'i — aynı ürünün iki cache'te tutulmasının
-  invalidation kararı bu ADR'ye eklenecek.
+- Task 16c: `GET /products/sku/{sku}` ve `productsBySku` cache'i — yukarıdaki ek.

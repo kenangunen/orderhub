@@ -85,6 +85,37 @@ class ProductCacheTest {
         verify(productRepository, times(1)).findById(product.getId());   // cache boştu, kaynağa gitti
     }
 
+    // ---------- getBySku ----------
+
+    // TEST: aynı sku ikinci kez istenince repository'ye gidilmiyor (cache hit)
+    @Test
+    void getBySku_calledTwice_repositoryHitOnce() {
+        Product product = existingProduct();
+        when(productRepository.findBySku(product.getSku())).thenReturn(Optional.of(product));
+
+        productService.getBySku(product.getSku());   // miss: metot çalışır, sonuç productsBySku'ya yazılır
+        productService.getBySku(product.getSku());   // hit: metot çalışmaz
+
+        verify(productRepository, times(1)).findBySku(product.getSku());
+    }
+
+    // TEST: update sonrası getBySku cache'ten değil repository'den okuyor (allEntries evict çalıştı)
+    @Test
+    void update_evictsSkuCache() {
+        Product product = existingProduct();
+        when(productRepository.findBySku(product.getSku())).thenReturn(Optional.of(product));
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));   // update ürünü id ile buluyor
+        productService.getBySku(product.getSku());   // sku cache'i doldu
+
+        productService.update(product.getId(), new UpdateProductRequest(
+                "Mekanik klavye Pro", "Kırmızı switch", new BigDecimal("2149.90"), "Elektronik"));
+        clearInvocations(productRepository);         // buraya kadarki çağrıları sıfırla
+
+        productService.getBySku(product.getSku());
+
+        verify(productRepository, times(1)).findBySku(product.getSku());   // cache boştu, kaynağa gitti
+    }
+
     // ---------- Helper ----------
 
     // ProductServiceTest'teki ile aynı ürün

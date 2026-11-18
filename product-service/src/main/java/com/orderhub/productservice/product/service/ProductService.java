@@ -18,6 +18,12 @@ import org.springframework.web.client.RestClientException;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Ürün (Product) yönetim süreçlerine ait iş kurallarını (business logic) barındıran servis sınıfıdır.
+ * Ürün oluşturma, güncelleme, silme ve listeleme operasyonlarını yürütürken;
+ * Caffeine Cache entegrasyonu (özellikle @Cacheable ve @CacheEvict yapıları) ile performans optimizasyonu sağlar
+ * ve harici servislerle (InventoryClient) iletişim süreçlerini yönetir.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -49,6 +55,16 @@ public class ProductService {
         return ProductResponse.from(findProductOrThrow(id));
     }
 
+    @Cacheable(cacheNames = "productsBySku", key = "#sku")
+    public ProductResponse getBySku(String sku) {
+        log.debug("Getting product by sku {}", sku);
+
+        return productRepository.findBySku(sku)
+                .map(ProductResponse::from)
+                .orElseThrow(() -> ProductNotFoundException.forSku(sku));
+
+    }
+
     // Ürün + stok: sadece istemci istediğinde (showInventory=true) çağrılır
     public ProductResponse getByIdWithInventory(UUID id) {
         Product product = findProductOrThrow(id);
@@ -75,8 +91,9 @@ public class ProductService {
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "products", key = "#id"),          // sadece bu ürünün kaydı
-            @CacheEvict(cacheNames = "productLists", allEntries = true)  // listeler (Adım 4)
+            @CacheEvict(cacheNames = "products", key = "#id"),
+            @CacheEvict(cacheNames = "productLists", allEntries = true),
+            @CacheEvict(cacheNames = "productsBySku", allEntries = true)
     })
     public void update(UUID id, UpdateProductRequest request) {
         Product product = findProductOrThrow(id);
@@ -93,7 +110,8 @@ public class ProductService {
 
     @Caching(evict = {
             @CacheEvict(cacheNames = "products", key = "#id"),
-            @CacheEvict(cacheNames = "productLists", allEntries = true)
+            @CacheEvict(cacheNames = "productLists", allEntries = true),
+            @CacheEvict(cacheNames = "productsBySku", allEntries = true)
     })
     public void delete(UUID id) {
         findProductOrThrow(id);

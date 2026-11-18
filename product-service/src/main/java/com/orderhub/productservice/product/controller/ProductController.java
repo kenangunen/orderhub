@@ -7,6 +7,7 @@ import com.orderhub.productservice.product.service.ProductService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -47,6 +48,13 @@ public class ProductController {
                 : productService.getById(productId);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/sku/{sku}")
+    public ResponseEntity<ProductResponse> getBySku(
+            @PathVariable @Pattern(regexp = CreateProductRequest.SKU_REGEX,
+                    message = CreateProductRequest.SKU_MESSAGE) String sku) {
+        return ResponseEntity.ok(productService.getBySku(sku));
     }
 
     @PostMapping

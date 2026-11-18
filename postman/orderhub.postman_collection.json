@@ -45,6 +45,72 @@
               "response": []
             },
             {
+              "name": "Get product by SKU - invalid format (400)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{productBaseUrl}}/api/v1/products/sku/ab",
+                  "host": [
+                    "{{productBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products",
+                    "sku",
+                    "ab"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get product by SKU - not found (404)",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{productBaseUrl}}/api/v1/products/sku/KLV-9999",
+                  "host": [
+                    "{{productBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products",
+                    "sku",
+                    "KLV-9999"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
               "name": "List products - limit too high",
               "protocolProfileBehavior": {
                 "disableBodyPruning": true
@@ -290,6 +356,39 @@
                 "v1",
                 "products",
                 "9f3e7db6-881f-43e6-8498-43b806a65266"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get product by SKU",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{productBaseUrl}}/api/v1/products/sku/KLV-0001",
+              "host": [
+                "{{productBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "sku",
+                "KLV-0001"
               ]
             }
           },

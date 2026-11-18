@@ -1,6 +1,7 @@
 package com.orderhub.productservice.product.controller;
 
 import com.orderhub.productservice.exception.ProductNotFoundException;
+import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -52,6 +54,42 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.sku").value("KLV-0001"))
                 .andExpect(jsonPath("$.price").value(1899.90));
+    }
+
+    // TEST: var olan sku için 200 ve ürün JSON'u dönüyor
+    @Test
+    void getBySku_existingSku_returns200() throws Exception {
+        ProductResponse response = ProductResponse.from(Product.create(
+                "KLV-0001", "Mekanik klavye", null, new BigDecimal("1899.90"), "Elektronik"));
+        when(productService.getBySku("KLV-0001")).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/products/sku/{sku}", "KLV-0001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sku").value("KLV-0001"))
+                .andExpect(jsonPath("$.name").value("Mekanik klavye"));
+    }
+
+    // TEST: olmayan sku 404 ve ProblemDetail dönüyor, detail'da sku geçiyor
+    @Test
+    void getBySku_missingSku_returns404() throws Exception {
+        when(productService.getBySku("KLV-9999"))
+                .thenThrow(ProductNotFoundException.forSku("KLV-9999"));
+
+        mockMvc.perform(get("/api/v1/products/sku/{sku}", "KLV-9999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product Not Found"))
+                .andExpect(jsonPath("$.detail").value(containsString("KLV-9999")));
+    }
+
+    // TEST: formata uymayan sku 400 alıyor ve service hiç çağrılmıyor
+    @Test
+    void getBySku_invalidFormat_returns400AndSkipsService() throws Exception {
+        mockMvc.perform(get("/api/v1/products/sku/{sku}", "ab"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation Failed"))   // Adım 6'nın koruması
+                .andExpect(jsonPath("$.errors.sku").exists());
+
+        verify(productService, never()).getBySku(anyString());   // validation controller'a girmeden durdurdu
     }
 
     // TEST: parametresiz istek stoksuz metodu çağırır; quantityOnHand JSON'da hiç yok
