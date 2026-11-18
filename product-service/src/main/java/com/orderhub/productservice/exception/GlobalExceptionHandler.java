@@ -1,7 +1,9 @@
 package com.orderhub.productservice.exception;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,5 +67,23 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("Product Not Found");
         return problem;
+    }
+
+    // Ürün var ama stok kaydı yok → 404 (başlık ürün 404'ünden farklı: istemci ikisini ayırt eder)
+    @ExceptionHandler(InventoryNotFoundException.class)
+    public ProblemDetail handleInventoryNotFound(InventoryNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Inventory Not Found");
+        return problem;
+    }
+
+    // Bağımlı servis çalışmıyor → 503 + Retry-After (istemciye "sonra tekrar dene" ipucu)
+    @ExceptionHandler(InventoryUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleInventoryUnavailable(InventoryUnavailableException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+        problem.setTitle("Inventory Unavailable");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "30")   // saniye
+                .body(problem);
     }
 }

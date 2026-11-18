@@ -1,6 +1,7 @@
 package com.orderhub.productservice.product.controller;
 
 import com.orderhub.productservice.product.dto.CreateProductRequest;
+import com.orderhub.productservice.product.dto.ProductInventoryResponse;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
@@ -55,6 +56,11 @@ public class ProductController {
             @PathVariable @Pattern(regexp = CreateProductRequest.SKU_REGEX,
                     message = CreateProductRequest.SKU_MESSAGE) String sku) {
         return ResponseEntity.ok(productService.getBySku(sku));
+    }
+
+    @GetMapping("/{productId}/inventory")   // alt kaynak: ürünün stoku
+    public ResponseEntity<ProductInventoryResponse> getInventory(@PathVariable UUID productId) {
+        return ResponseEntity.ok(productService.getInventory(productId));
     }
 
     @PostMapping

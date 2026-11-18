@@ -232,6 +232,69 @@
                 }
               },
               "response": []
+            },
+            {
+              "name": "Get product inventory - product not found (404)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{productBaseUrl}}/api/v1/products/00000000-0000-0000-0000-000000000000/inventory",
+                  "host": [
+                    "{{productBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products",
+                    "00000000-0000-0000-0000-000000000000",
+                    "inventory"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get product inventory - no inventory record (404)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{productBaseUrl}}/api/v1/products/1b828cac-544f-4b1e-a636-3eaca3c10d78/inventory",
+                  "host": [
+                    "{{productBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products",
+                    "1b828cac-544f-4b1e-a636-3eaca3c10d78",
+                    "inventory"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get product inventory - inventory down (503)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{productBaseUrl}}/api/v1/products/{{productId}}/inventory",
+                  "host": [
+                    "{{productBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "products",
+                    "{{productId}}",
+                    "inventory"
+                  ]
+                }
+              },
+              "response": []
             }
           ]
         },
@@ -242,7 +305,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"KLV-0001\",\n  \"name\": \"Mekanik klavye\",\n  \"description\": \"TR Q, kahverengi switch\",\n  \"price\": 1899.90,\n  \"category\": \"Elektronik\"\n}",
+              "raw": "{\n  \"sku\": \"TST-0001\",\n  \"name\": \"Test ürünü\",\n  \"description\": \"Inventory'de kaydı olmayan ürün\",\n  \"price\": 10.00,\n  \"category\": \"Test\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -265,6 +328,23 @@
         },
         {
           "name": "List products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Liste cevabından KLV-0001'i bul, id'sini koleksiyon değişkenine yaz",
+                  "const product = pm.response.json().find(p => p.sku === \"KLV-0001\");",
+                  "if (product) {",
+                  "    pm.collectionVariables.set(\"productId\", product.id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
           "protocolProfileBehavior": {
             "disableBodyPruning": true
           },
@@ -418,6 +498,27 @@
                 "v1",
                 "products",
                 "9f3e7db6-881f-43e6-8498-43b806a65266"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get product inventory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{productBaseUrl}}/api/v1/products/{{productId}}/inventory",
+              "host": [
+                "{{productBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{productId}}",
+                "inventory"
               ]
             }
           },
@@ -627,6 +728,11 @@
     {
       "key": "inventoryBaseUrl",
       "value": ""
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "default"
     }
   ]
 }

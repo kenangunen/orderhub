@@ -2,6 +2,7 @@
 
 - Durum: Kabul edildi
 - Tarih: 2026-11-15
+- Ekler: 2026-11-16 (stok opt-in), 2026-11-18 (stok alt kaynağı)
 
 ## Bağlam
 
@@ -88,7 +89,7 @@ ve servisler bağımsız değiştirilemez (distributed monolith).
   transaction yok. → Hafta 3: saga + idempotent consumer, eventual consistency.
 - **Operasyon yükü:** Üç servis, üç port, üç veritabanı.
   → B10-A: port tablosu; B10-D: ortak parent pom; ileride Docker Compose.
-- 
+
 ## Ek (2026-11-16): Stok bilgisi opt-in
 
 **Karar:** Ürün detayı stok bilgisini sadece `?showInventory=true` ile içerir; varsayılan `false`.
@@ -102,3 +103,36 @@ Stok istenmediğinde inventory-service hiç çağrılmaz.
   `GET /products/{id}/inventory` (inventory kapalıysa 503) eklenecek.
 - Reddedilen: ayrı bir `stockStatus` alanı. Bugün bu ayrıma ihtiyacı olan istemci yok,
   sözleşme gereksiz büyür.
+
+## Ek (2026-11-18): Stok alt kaynağı ve inventory arızasında davranış
+
+**Bağlam:** 16 Kasım ekinde sözü verilen alt kaynak eklendi. Stok bilgisine artık iki yoldan ulaşılıyor:
+- `GET /api/v1/products/{productId}?showInventory=true` → ürün detayı + `quantityOnHand`
+- `GET /api/v1/products/{productId}/inventory` → sadece stok: `ProductInventoryResponse(productId, sku, availableQty)`
+
+**Karar:** İkisi birlikte kalır, ama hata durumlarında **farklı** davranırlar:
+
+| Durum | `?showInventory=true` | `/{productId}/inventory` |
+|---|---|---|
+| Stok var | 200 + `quantityOnHand` | 200 + `availableQty` |
+| Ürün yok | 404 `Product Not Found` | 404 `Product Not Found` |
+| Stok kaydı yok | 200, `quantityOnHand` yok | 404 `Inventory Not Found` |
+| inventory-service kapalı | 200, `quantityOnHand` yok (graceful degradation) | 503 `Inventory Unavailable` + `Retry-After: 30` |
+
+**Gerekçe:** Detay endpoint'inde stok bir **ek bilgidir**; yokluğu ürünü göstermeye engel değil.
+Alt kaynakta stok endpoint'in **tek işidir**; yokken 200 dönmek "başarılı ama boş" demek olur.
+`InventoryClient` her iki yolda aynı `RestClientException`'ı fırlatır; **yorumu çağıran service metodu yapar**:
+`getByIdWithInventory` hatayı yutar (`warn` + `null`), `getInventory` onu `InventoryUnavailableException`'a
+çevirir. Asıl hata `cause` olarak taşınır ve log'a yazılır, istemciye sızmaz.
+
+- `availableQty` primitive `int`: 200 dönülüyorsa adet her zaman vardır; "yok" ve "bilinmiyor"
+  durumları status ile ifade edilir.
+- "Kayıt yok" ile "stok 0" farklıdır; kayıt yokken 0 dönülmez.
+- İki 404 aynı status'u, farklı `title`'ı kullanır; istemci ürünün mü stok kaydının mı olmadığını ayırt eder.
+
+**Değerlendirilen alternatifler:**
+- `?showInventory`'yi kaldırıp tek yol bırakmak: detay ekranı iki çağrı yapmak zorunda kalır.
+- Alt kaynakta da 200 + `null`: istemci her cevapta "null mı, sayı mı" kontrolü yapar; 503'ün
+  "geçici, tekrar dene" anlamı (retry, load balancer, circuit breaker) kaybolur.
+
+**Sonuç:** Hafta 3'te Resilience4j circuit breaker açıkken de aynı exception ve aynı 503 kullanılacak.

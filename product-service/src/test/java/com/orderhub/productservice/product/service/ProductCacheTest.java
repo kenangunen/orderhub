@@ -2,6 +2,7 @@ package com.orderhub.productservice.product.service;
 
 import com.orderhub.productservice.client.InventoryClient;
 import com.orderhub.productservice.product.Product;
+import com.orderhub.productservice.product.dto.CreateProductRequest;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.*;
@@ -83,6 +85,35 @@ class ProductCacheTest {
         productService.getById(product.getId());
 
         verify(productRepository, times(1)).findById(product.getId());   // cache boştu, kaynağa gitti
+    }
+
+    // ---------- getAll ----------
+
+    // TEST: aynı limit ile liste ikinci kez istenince repository'ye gidilmiyor
+    @Test
+    void getAll_calledTwice_repositoryHitOnce() {
+        when(productRepository.findAll()).thenReturn(List.of(existingProduct()));
+
+        productService.getAll(20);
+        productService.getAll(20);
+
+        verify(productRepository, times(1)).findAll();
+    }
+
+    // TEST: yeni ürün eklenince liste cache'i boşalıyor
+    @Test
+    void create_evictsListCache() {
+        when(productRepository.findAll()).thenReturn(List.of(existingProduct()));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        productService.getAll(20);   // liste cache'i doldu
+
+        productService.create(new CreateProductRequest(
+                "MSE-0001", "Kablosuz mouse", null, new BigDecimal("599.00"), "Elektronik"));
+        clearInvocations(productRepository);
+
+        productService.getAll(20);
+
+        verify(productRepository, times(1)).findAll();   // cache boştu, kaynağa gitti
     }
 
     // ---------- getBySku ----------

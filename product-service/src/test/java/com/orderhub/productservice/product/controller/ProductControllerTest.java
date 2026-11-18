@@ -1,8 +1,11 @@
 package com.orderhub.productservice.product.controller;
 
+import com.orderhub.productservice.exception.InventoryNotFoundException;
+import com.orderhub.productservice.exception.InventoryUnavailableException;
 import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
+import com.orderhub.productservice.product.dto.ProductInventoryResponse;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.service.ProductService;
@@ -12,6 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.ResourceAccessException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -20,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -90,6 +95,58 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.errors.sku").exists());
 
         verify(productService, never()).getBySku(anyString());   // validation controller'a girmeden durdurdu
+    }
+
+    // ---------- GET /{productId}/inventory ----------
+
+    // TEST: stok varsa 200 ve JSON alanları dolu
+    @Test
+    void getInventory_existingProduct_returns200() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getInventory(id))
+                .thenReturn(new ProductInventoryResponse(id, "KLV-0001", 50));
+
+        mockMvc.perform(get("/api/v1/products/{productId}/inventory", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productId").value(id.toString()))
+                .andExpect(jsonPath("$.sku").value("KLV-0001"))
+                .andExpect(jsonPath("$.availableQty").value(50));
+    }
+
+    // TEST: ürün yoksa 404 "Product Not Found"
+    @Test
+    void getInventory_missingProduct_returns404ProductNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getInventory(id)).thenThrow(new ProductNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/products/{productId}/inventory", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product Not Found"));
+    }
+
+    // TEST: stok kaydı yoksa 404 ama başlık farklı: "Inventory Not Found"
+    @Test
+    void getInventory_noInventoryRecord_returns404InventoryNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getInventory(id)).thenThrow(new InventoryNotFoundException("KLV-0001"));
+
+        mockMvc.perform(get("/api/v1/products/{productId}/inventory", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Inventory Not Found"));
+    }
+
+    // TEST: inventory kapalıysa 503 + Retry-After; iç hata mesajı istemciye sızmıyor
+    @Test
+    void getInventory_inventoryDown_returns503WithRetryAfter() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getInventory(id)).thenThrow(new InventoryUnavailableException(
+                "KLV-0001", new ResourceAccessException("Connection refused")));
+
+        mockMvc.perform(get("/api/v1/products/{productId}/inventory", id))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Retry-After", "30"))
+                .andExpect(jsonPath("$.title").value("Inventory Unavailable"))
+                .andExpect(jsonPath("$.detail").value(not(containsString("Connection refused"))));
     }
 
     // TEST: parametresiz istek stoksuz metodu çağırır; quantityOnHand JSON'da hiç yok

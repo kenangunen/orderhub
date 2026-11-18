@@ -1,9 +1,12 @@
 package com.orderhub.productservice.product.service;
 
 import com.orderhub.productservice.client.InventoryClient;
+import com.orderhub.productservice.exception.InventoryNotFoundException;
+import com.orderhub.productservice.exception.InventoryUnavailableException;
 import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
+import com.orderhub.productservice.product.dto.ProductInventoryResponse;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.repository.ProductRepository;
@@ -161,6 +164,59 @@ class ProductServiceTest {
         // Ürün bilgisi eksiksiz geliyor, sadece stok bilinmiyor
         assertThat(response.sku()).isEqualTo(product.getSku());
         assertThat(response.quantityOnHand()).isNull();
+    }
+
+    // ---------- getInventory (sadece stok) ----------
+
+    // TEST: stok varsa productId, sku ve adet dolu döner
+    @Test
+    void getInventory_inventoryAvailable_returnsQuantity() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.of(50));
+
+        ProductInventoryResponse response = productService.getInventory(product.getId());
+
+        assertThat(response.productId()).isEqualTo(product.getId());
+        assertThat(response.sku()).isEqualTo("KLV-0001");
+        assertThat(response.availableQty()).isEqualTo(50);
+    }
+
+    // TEST: ürün yoksa ProductNotFoundException; inventory'ye hiç gidilmez
+    @Test
+    void getInventory_missingProduct_throwsProductNotFound() {
+        UUID id = UUID.randomUUID();
+        when(productRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.getInventory(id))
+                .isInstanceOf(ProductNotFoundException.class);
+
+        verify(inventoryClient, never()).getAvailableQty(anyString());   // gereksiz HTTP çağrısı yok
+    }
+
+    // TEST: stok kaydı yoksa InventoryNotFoundException (0 dönmez)
+    @Test
+    void getInventory_noInventoryRecord_throwsInventoryNotFound() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(inventoryClient.getAvailableQty(product.getSku())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.getInventory(product.getId()))
+                .isInstanceOf(InventoryNotFoundException.class)
+                .hasMessageContaining("KLV-0001");
+    }
+
+    // TEST: inventory'ye ulaşılamazsa InventoryUnavailableException; asıl hata cause olarak taşınıyor
+    @Test
+    void getInventory_inventoryDown_throwsUnavailableWithCause() {
+        Product product = existingProduct();
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(inventoryClient.getAvailableQty(product.getSku()))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        assertThatThrownBy(() -> productService.getInventory(product.getId()))
+                .isInstanceOf(InventoryUnavailableException.class)
+                .hasCauseInstanceOf(ResourceAccessException.class);   // exception chaining kanıtı
     }
 
     // ---------- getAll ----------

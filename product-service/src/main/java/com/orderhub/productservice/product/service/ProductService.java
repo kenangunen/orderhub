@@ -1,9 +1,12 @@
 package com.orderhub.productservice.product.service;
 
 import com.orderhub.productservice.client.InventoryClient;
+import com.orderhub.productservice.exception.InventoryNotFoundException;
+import com.orderhub.productservice.exception.InventoryUnavailableException;
 import com.orderhub.productservice.exception.ProductNotFoundException;
 import com.orderhub.productservice.product.Product;
 import com.orderhub.productservice.product.dto.CreateProductRequest;
+import com.orderhub.productservice.product.dto.ProductInventoryResponse;
 import com.orderhub.productservice.product.dto.ProductResponse;
 import com.orderhub.productservice.product.dto.UpdateProductRequest;
 import com.orderhub.productservice.product.repository.ProductRepository;
@@ -55,6 +58,13 @@ public class ProductService {
         return ProductResponse.from(findProductOrThrow(id));
     }
 
+    // DEĞİŞTİ: geri geldi (16a). Ürün + stok: sadece istemci istediğinde (showInventory=true) çağrılır.
+    // Cache yok: stok her istekte taze. Inventory'ye ulaşılamazsa ürün yine döner, adet null.
+    public ProductResponse getByIdWithInventory(UUID id) {
+        Product product = findProductOrThrow(id);
+        return ProductResponse.from(product, fetchQuantityOnHand(product.getSku()));
+    }
+
     @Cacheable(cacheNames = "productsBySku", key = "#sku")
     public ProductResponse getBySku(String sku) {
         log.debug("Getting product by sku {}", sku);
@@ -62,13 +72,21 @@ public class ProductService {
         return productRepository.findBySku(sku)
                 .map(ProductResponse::from)
                 .orElseThrow(() -> ProductNotFoundException.forSku(sku));
-
     }
 
-    // Ürün + stok: sadece istemci istediğinde (showInventory=true) çağrılır
-    public ProductResponse getByIdWithInventory(UUID id) {
-        Product product = findProductOrThrow(id);
-        return ProductResponse.from(product, fetchQuantityOnHand(product.getSku()));
+    // DEĞİŞTİ: yorum kendi metodunu anlatıyor.
+    // Sadece stok (GET /{id}/inventory). Cache yok (ADR-0005). Inventory hatası yutulmaz, çevrilir.
+    public ProductInventoryResponse getInventory(UUID id) {
+        Product product = findProductOrThrow(id);                                // ortak yardımcı → 404 Product Not Found
+
+        try {
+            int availableQty = inventoryClient.getAvailableQty(product.getSku())
+                    .orElseThrow(() -> new InventoryNotFoundException(product.getSku()));   // kayıt yok → 404 Inventory Not Found
+            return new ProductInventoryResponse(product.getId(), product.getSku(), availableQty);
+        } catch (RestClientException ex) {                                      // bağlantı/timeout/5xx
+            log.warn("Inventory unavailable for sku {}, responding 503: {}", product.getSku(), ex.getMessage());
+            throw new InventoryUnavailableException(product.getSku(), ex);     // yutmuyoruz, çeviriyoruz → 503
+        }
     }
 
     // Stok ek bilgi: inventory'ye ulaşılamazsa ürün yine döner, stok "bilinmiyor" (null) olur
@@ -77,12 +95,12 @@ public class ProductService {
             return inventoryClient.getAvailableQty(sku).orElse(null);
         } catch (RestClientException e) {
             // Bağlantı hatası, timeout, 5xx → hepsi RestClientException'ın alt sınıfı
-            log.warn("Inventory unavailable for sku {}: {}", sku, e.getMessage());
+            log.warn("Inventory unavailable for sku {}, returning product without quantity: {}", sku, e.getMessage());
             return null;
         }
     }
 
-    @Cacheable(cacheNames = "productList", key = "#limit")
+    @Cacheable(cacheNames = "productLists", key = "#limit")   // DEĞİŞTİ: "productList" → "productLists" (yaml ve evict'lerle aynı)
     public List<ProductResponse> getAll(int limit) {
         return productRepository.findAll().stream()
                 .limit(limit) // en fazla limit kadar ürün
