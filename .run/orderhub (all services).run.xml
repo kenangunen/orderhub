@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="orderhub (all services)" type="CompoundRunConfigurationType">
+    <toRun name="inventory-service (dev)" type="SpringBootApplicationConfigurationType" />
+    <toRun name="product-service (dev)" type="SpringBootApplicationConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>
