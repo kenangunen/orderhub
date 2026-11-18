@@ -1,0 +1,44 @@
+# Workflow'un GitHub Actions sekmesinde görünecek adı
+name: orderhub CI
+
+# Ne zaman çalışsın?
+on:
+  push:
+    branches: [main]
+    # Her değişiklik tetikler; sadece build'i etkilemeyen dosyalar hariç.
+    # (paths yerine paths-ignore: yeni bir servis eklenince listeye eklemeyi unutma riski yok)
+    paths-ignore:
+      - 'docs/**'
+      - 'postman/**'
+      - '.run/**'
+      - '**/*.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'postman/**'
+      - '.run/**'
+      - '**/*.md'
+
+jobs:
+  build:
+    # GitHub'ın verdiği temiz bir Linux makinesi
+    runs-on: ubuntu-latest
+
+    # working-directory yok: komutlar repo kökünde çalışır,
+    # kök pom (aggregator) tüm servisleri sırayla build eder
+
+    steps:
+      # 1) Repo kodunu makineye indir
+      - uses: actions/checkout@v5
+
+      # 2) Java 21 kur; Maven bağımlılıklarını cache'le
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          # Herhangi bir pom değişince cache yenilenir (kök + tüm servisler)
+          cache-dependency-path: '**/pom.xml'
+
+      # 3) Enforcer + derleme + tüm servislerin testleri + paketleme. -B: batch mode
+      - run: ./mvnw -B verify

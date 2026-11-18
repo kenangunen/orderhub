@@ -1,4 +1,4 @@
-![product-service CI](https://github.com/kenangunen/orderhub/actions/workflows/product-service.yml/badge.svg)
+![orderhub CI](https://github.com/kenangunen/orderhub/actions/workflows/ci.yml/badge.svg)
 
 # OrderHub
 
