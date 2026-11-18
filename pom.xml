@@ -73,6 +73,30 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- Build başlamadan ortamı ve pom'u kontrol eder; kural bozulursa build durur -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-build-rules</id>
+                        <goals>
+                            <goal>enforce</goal>   <!-- varsayılan olarak validate fazında, yani en başta çalışır -->
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[21,)</version>   <!-- 21 dahil ve üstü -->
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.9,)</version>
+                                </requireMavenVersion>
+                                <banDuplicatePomDependencyVersions/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
